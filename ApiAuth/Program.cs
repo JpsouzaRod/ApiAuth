@@ -1,5 +1,6 @@
 using ApiAuth;
 using ApiAuth.Adapter.Data;
+using ApiAuth.Adapter.Mongo;
 using ApiAuth.Application.Services;
 using ApiAuth.Domain.Models;
 using ApiAuth.Endpoint;
@@ -7,12 +8,16 @@ using ApiAuth.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
+using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.Configure<MongoOptions>(options => builder.Configuration.GetSection("MongoDB"));
 
 var key = Encoding.ASCII.GetBytes(Settings.Secret);
 
@@ -40,7 +45,36 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy("Employee", policy => policy.RequireRole("employee"));
     }); 
 
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition(
+            "token",
+            new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                BearerFormat = "JWT",
+                Scheme = "Bearer",
+                In = ParameterLocation.Header,
+                Name = HeaderNames.Authorization
+            }
+        );
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "token"
+                        },
+                    },
+                    Array.Empty<string>()
+                }
+        }
+    );
+});
 
 builder.Services.AddDbContext<UserDbContext>(opt => opt.UseInMemoryDatabase("Database"));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -53,8 +87,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.AddEndpoints();
-
-app.UseHttpsRedirection();
 
 app.UseSwagger();
 app.UseSwaggerUI();
