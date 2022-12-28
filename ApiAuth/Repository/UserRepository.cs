@@ -1,22 +1,54 @@
-﻿using ApiAuth.Domain.Models;
+﻿using ApiAuth.Adapter.Data;
+using ApiAuth.Application.Services;
+using ApiAuth.Domain.Models;
+using System.Security.Cryptography;
+using System.Security.Policy;
 
 namespace ApiAuth.Repository
 {
-        
-    public static class UserRepository
+    public interface IUserRepository
     {
-        public static User Auth(string username, string password)
+        Task RegistrarUsuario(User user);
+        Task RedefinirSenha(User user, string password);
+        Task<User> AutenticarUsuario(string username, string password);
+    }
+        
+    public class UserRepository : IUserRepository
+    {
+        private readonly UserDbContext context;
+        private readonly HashService hash;
+        public UserRepository(UserDbContext _context)
         {
-            var users = new List<User>
-            {
-                new User() {Id = 1, Username = "batman", Password = "teste@123", Role = "manager"},
-                new User() {Id = 2, Username = "robin", Password = "teste", Role = "employee"}
-            };
+            context = _context;
+            hash = new HashService(SHA512.Create());
+        }
 
-            return users
-                    .FirstOrDefault(x => 
-                        string.Equals(x.Username,username) && 
-                        x.Password == password);
+        public async Task<User> AutenticarUsuario(string username, string password)
+        {
+            var user = context.User.FirstOrDefault(x => 
+                x.Username.Equals(username, StringComparison.OrdinalIgnoreCase) &&
+                x.Password.Equals(hash.CriptografarSenha(password), StringComparison.OrdinalIgnoreCase));
+
+            return user;
+        }
+
+        public async Task RedefinirSenha(User user, string password)
+        {
+            var userReplace = context.User.FirstOrDefault(x =>
+                x.Username.Equals(user.Username, StringComparison.OrdinalIgnoreCase));
+
+            userReplace.Password = hash.CriptografarSenha(password);
+
+            context.User.Update(userReplace);
+            context.SaveChanges();
+        }
+
+        public async Task RegistrarUsuario(User user)
+        {
+            user.Password = hash.CriptografarSenha(user.Password);  
+            context.User.AddAsync(user);
+            context.SaveChanges();
+
         }
     }
 }   

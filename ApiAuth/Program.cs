@@ -1,8 +1,11 @@
 using ApiAuth;
+using ApiAuth.Adapter.Data;
 using ApiAuth.Application.Services;
 using ApiAuth.Domain.Models;
+using ApiAuth.Endpoint;
 using ApiAuth.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
@@ -39,55 +42,22 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddDbContext<UserDbContext>(opt => opt.UseInMemoryDatabase("Database"));
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseHttpsRedirection();
+app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapPost("/login", (User model) =>
-{
-    var user = UserRepository.Auth(model.Username, model.Password);
+app.AddEndpoints();
 
-    if (user == null)
-    {
-        return Results.NotFound(new {
-            message = "Usuário ou senha inválido"
-        });
-    }
+app.UseHttpsRedirection();
 
-    var token = TokenService.GenerateToken(user);
+app.UseSwagger();
+app.UseSwaggerUI();
 
-    user.Password = "";
 
-    return Results.Ok(new 
-    {
-        user = user,
-        token = token
-    });
-
-})
-.WithName("login");
-
-app.MapGet("/anonymous", () => 
-{
-    Results.Ok("anonymous");
-}).AllowAnonymous();
-
-app.MapGet("/authenticated", (ClaimsPrincipal user) =>
-{
-    Results.Ok(new {message = $"authenticated as {user.Identity.Name}"});
-}).RequireAuthorization();
-
-app.MapGet("/employee", (ClaimsPrincipal user) =>
-{
-    Results.Ok(new { message = $"authenticated as {user.Identity.Name}" });
-}).RequireAuthorization("Employee");
-
-app.MapGet("/manager", (ClaimsPrincipal user) =>
-{
-    Results.Ok(new { message = $"authenticated as {user.Identity.Name}" });
-}).RequireAuthorization("Admin");
 app.Run();
