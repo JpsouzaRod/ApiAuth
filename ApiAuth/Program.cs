@@ -1,6 +1,5 @@
 using ApiAuth;
 using ApiAuth.Adapter.Data;
-using ApiAuth.Adapter.Mongo;
 using ApiAuth.Application.Services;
 using ApiAuth.Domain.Models;
 using ApiAuth.Endpoint;
@@ -16,8 +15,6 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.Configure<MongoOptions>(options => builder.Configuration.GetSection("MongoDB"));
 
 var key = Encoding.ASCII.GetBytes(Settings.Secret);
 
